@@ -49,29 +49,44 @@ def atypical_breed(parent1, parent2):
 		else:
 			child.append(None)
 	
+	child1 = child[:]
+	not_selected_tmp = set(not_selected)
+	
 	for i in range(parent1.n):
-		if child[i] is None:
-			item = random.choice(list(not_selected))
-			child[i] = item
-			not_selected.remove(item)
+		if child1[i] is None:
+			item = random.choice(list(not_selected_tmp))
+			child1[i] = item
+			not_selected_tmp.remove(item)
 	
-	
-	child = NQueen(parent1.n, child)
+	child1 = NQueen(parent1.n, child1)
 
-	return child
+	child2 = child[:]
+	not_selected_tmp = set(not_selected)
+
+	for i in range(parent1.n):
+		if child2[i] is None:
+			item = random.choice(list(not_selected_tmp))
+			child2[i] = item
+			not_selected_tmp.remove(item)
+
+	child2 = NQueen(parent1.n, child2)
+
+	return child1, child2
 
 
 def another_breed(parent1, parent2):
-	permutation1 = parent1.permutation
-	permutation2 = parent2.permutation
+	permutation1 = parent1.permutation[:]
+	permutation2 = parent2.permutation[:]
 	for i in range(0, parent1.n):
-		if abs(permutation1[i-1] - permutation1[i]) == 1:
-			permutation1[i], permutation2[i] = permutation2[i], permutation1[i]
-		if abs(parent2.permutation[i-1] - parent2.permutation[i]) == 1:
-			permutation1[i], permutation2[i] = permutation2[i], permutation1[i]
+		# if abs(permutation1[i-1] - permutation1[i]) == 1:
+		# 	permutation1[i], permutation2[i] = permutation2[i], permutation1[i]
+		# if abs(parent2.permutation[i-1] - parent2.permutation[i]) == 1:
+		# 	permutation1[i], permutation2[i] = permutation2[i], permutation1[i]
 		
-		# if parent1.indanger_queens(permutation1[i]):
-		
+		if i in parent1.indanger_queens:
+			permutation1[i], permutation2[i] = permutation2[i], permutation1[i]
+		if i in parent2.indanger_queens:
+			permutation1[i], permutation2[i] = permutation2[i], permutation1[i]
 	
 	return NQueen(parent1.n, permutation1), NQueen(parent1.n, permutation2)
 	
@@ -82,35 +97,32 @@ def breed_population(parents, population_size):
 
 	# rate = int((population_size/len(parents))*2)
 	rate = int((population_size/len(parents)))
-	random.shuffle(parents)
-
-	# for i in range(int(len(parents)/2)):
-	# 	# child = atypical_breed(parents[i], parents[len(parents)-i-1])
-	# 	child = ordered_breed(parents[i], parents[len(parents)-i-1])
-	# 	children.append(child)
 	
 	for _ in range(rate):
 		random.shuffle(parents)
 		for i in range(int(len(parents)/2)):
 			two_child = another_breed(parents[i], parents[len(parents)-i-1])
+			# two_child = atypical_breed(parents[i], parents[len(parents)-i-1])
 			children.append(two_child[0])
 			children.append(two_child[1])
 
 	return children
 
 def mutate(individual, mutation_rate):
-	permutation = individual.permutation
+	permutation = individual.permutation[:]
 	if(random.random() < mutation_rate):
-		for swapped in range(len(permutation)):
-				swapWith = int(random.random() * len(permutation))
+		while True:
+			swapped = int(random.random() * len(permutation))
+			swapWith = int(random.random() * len(permutation))
+			if swapped == swapWith:
+				continue
+			
+			city1 = permutation[swapped]
+			city2 = permutation[swapWith]
 	
-				city1 = permutation[swapped]
-				city2 = permutation[swapWith]
-	
-				permutation[swapped] = city2
-				permutation[swapWith] = city1
-		mutated = NQueen(individual.n, permutation)
-		return mutated
+			permutation[swapped] = city2
+			permutation[swapWith] = city1
+			return NQueen(individual.n, permutation)
 	else:
 		return None
 
@@ -133,15 +145,26 @@ def mutate_population(population, mutation_rate):
 	return mutated_children
 
 
-def replacement(children, parents, population_size, elite_size):
-	parents = sorted(parents, key=lambda agent: agent.fitness, reverse=True)
+def replacement(children, current_population):
+	children = children + current_population
 
-	children = children + parents[:elite_size]
+	unique_children = []
+	unique_children_hash = []
+	
+	
+	for child in children:
+		if hash(child) in unique_children_hash:
+			continue
+		else:
+			unique_children.append(child)
+			unique_children_hash.append(hash(child))
+
+	children = unique_children
 
 	children = sorted(
-		children, key=lambda agent: agent.fitness, reverse=True)
+		list(children), key=lambda agent: agent.fitness, reverse=True)
 	
-	children = children[:population_size]
+	children = children[:len(current_population)]
 
 	return children
 
@@ -182,11 +205,14 @@ def local_search(individual, max_depth, max_count):
 	
 	return best
 	
-def improve(population, max_depth, max_count):
+
+def improve(population, improve_rate, max_depth, max_count):
+	
 	improved_population = []
 	
 	for individual in population:
-		improved_population.append(local_search(individual, max_depth, max_count))
+		if random.random() < improve_rate:
+			improved_population.append(local_search(individual, max_depth, max_count))
 	
 	return improved_population
 
@@ -197,13 +223,13 @@ def evaluate(population):
 	return sum(pop_fitness), pop_fitness[0], pop_fitness[5], pop_fitness[30], pop_fitness[-1]
 
 
-def generate_genration(epoch, previous_population, tournament_size, parents_size, max_depth, max_count, mutation_rate, elite_size):
+def generate_genration(epoch, previous_population, tournament_size, parents_size, improve_rate, max_depth, max_count, mutation_rate):
 	parents = tournament_selection(
 		previous_population, tournament_size, parents_size)
 
 	children = breed_population(parents, len(previous_population))
 	
-	improve(children, max_depth, max_count)
+	children = improve(children, improve_rate, max_depth, max_count)
 	
 	mutated_children = mutate_population(children, mutation_rate)
 	
@@ -213,7 +239,7 @@ def generate_genration(epoch, previous_population, tournament_size, parents_size
 
 	children = children + mutated_children
 
-	next_population = replacement(mutated_children, parents, len(previous_population), elite_size)
+	next_population = replacement(children, previous_population)
 
 	eval_ = evaluate(next_population)
 
@@ -223,15 +249,16 @@ def generate_genration(epoch, previous_population, tournament_size, parents_size
 	return next_population
 
 
-def NQueens_MA(n, n_generations, population_size, tournament_size, parents_size, max_depth, max_count, mutation_rate, elite_size):
+def NQueens_MA(n, n_generations, population_size, tournament_size, parents_size, improve_rate, max_depth, max_count, mutation_rate):
 	population = initial_population(n, population_size)
 	
 	for i in range(n_generations):
 		population = generate_genration(
-			i, population, tournament_size, parents_size, max_depth, max_count, mutation_rate, elite_size)
+			i, population, tournament_size, parents_size, improve_rate, max_depth, max_count, mutation_rate)
+		
+		if population[0].fitness == 0:
+			break
+		
 
 	print('Best Answer:')
 	print(population[0].permutation)
-
-
-NQueens_MA(100, 100, 100, 80, 20, 4, 5, 1, 20)

@@ -8,7 +8,10 @@ class NQueen:
 		
 		self.fitness = None
 		self.get_fitness()
-		
+	
+	def __hash__(self):
+		return hash(str(self.permutation))
+	
 	def get_fitness(self):
 		if self.fitness is not None:
 			return self.fitness
