@@ -112,16 +112,18 @@ def mutate(individual, mutation_rate):
 	permutation = individual.permutation[:]
 	if(random.random() < mutation_rate):
 		while True:
-			swapped = int(random.random() * len(permutation))
-			swapWith = int(random.random() * len(permutation))
+			indanger = set(individual.indanger_queens)
+			swapped = random.choice(list(indanger))
+			indanger.remove(swapped)
+			swapWith = random.choice(list(indanger))
 			if swapped == swapWith:
 				continue
 			
-			city1 = permutation[swapped]
-			city2 = permutation[swapWith]
+			gene1 = permutation[swapped]
+			gene2 = permutation[swapWith]
 	
-			permutation[swapped] = city2
-			permutation[swapWith] = city1
+			permutation[swapped] = gene2
+			permutation[swapWith] = gene1
 			return NQueen(individual.n, permutation)
 	else:
 		return None
@@ -178,11 +180,11 @@ def generate_neighbor(individual):
 		if swapped == swapWith:
 			continue
 		
-		city1 = permutation[swapped]
-		city2 = permutation[swapWith]
+		gene1 = permutation[swapped]
+		gene2 = permutation[swapWith]
 
-		permutation[swapped] = city2
-		permutation[swapWith] = city1
+		permutation[swapped] = gene2
+		permutation[swapWith] = gene1
 		yield NQueen(individual.n, permutation)
 		permutation = individual.permutation
 
